@@ -1,0 +1,185 @@
+-> monitoring with Prometheus  
+Prometheus is an open-source system monitoring and alerting toolkit, often used for monitoring containerised applications, systems, and services. It’s designed for reliability and scalability in environments such as cloud-native and containerised environments, including Kubernetes. Prometheus can efficiently collect, store, and query time-series data  
+
+what is Prometheus?  
+   -> Prometheus collects metrics from services and stores them in a time-series database  
+   -> metrics in Prometheus are time-stamped and stored with labels that help identify specific metrics like which service or machine they came from  
+   -> Prometheus is a pull-based system, meaning it queries endpoints to collect metrics, but it can also support push-based metrics with specific components (like Pushgateway)  
+   -> it supports alerting to notify when systems deviate from expected behaviours, which can be critical for maintaining system health  
+
+key components of Prometheus:  
+   1. Prometheus Server: this is the core component. It scrapes (collects) time-series data and stores it in its internal database  
+   2. Alertmanager: handles the alerts that are triggered based on Prometheus data. It can manage alert routing, deduplication, and group similar alerts  
+   3. Exporters: these are tools that expose metrics from various third-party services (like databases, message queues, etc.) in a Prometheus-compatible format  
+   4. Prometheus client libraries: These libraries allow developers to expose custom metrics from their own applications, which can then be scraped by Prometheus  
+   5. Grafana: a popular visualisation tool often paired with Prometheus for creating dashboards to visualise the collected metrics  
+
+why monitoring tools are critical:
+   -> in large-scale applications, microservices, and distributed systems, it’s impossible to manually track each component. Without monitoring, systems may silently degrade, and it can be difficult to identify issues before they cause failures  
+   -> monitoring tools help observe the health and performance of your infrastructure, platform, and applications in real-time  
+   -> metrics are the key to providing insight into how well systems are running, and they help inform decisions about scaling, troubleshooting, and resource allocation  
+
+-> why we need a monitoring tool 
+monitoring is essential because modern systems are often dynamic and highly distributed. Without the right tools, maintaining high availability and performance can be extremely difficult. Prometheus addresses these challenges by providing  
+
+1. visibility: gives you a window into the performance and health of your systems  
+2. proactive alerts: notifies you when a system's behaviour deviates from expected norms, enabling pre-emptive fixes  
+3. troubleshooting: with historical metrics and detailed query capabilities (PromQL), Prometheus can help pinpoint the cause of issues by showing trends over time  
+4. scaling: as you scale your systems (especially in containerised environments), monitoring tools help ensure new instances or services are behaving as expected  
+
+-> Prometheus architecture  
+Prometheus follows a pull-based model for gathering data, where it scrapes metrics from HTTP endpoints (often `/metrics`), storing this data in its time-series database  
+
+key components:  
+1. Prometheus server:  
+   -> the core system that pulls data from target endpoints and stores it  
+   -> uses HTTP and exposes a web UI for querying data (using PromQL)  
+   -> Prometheus is also capable of federating with other Prometheus instances to aggregate metrics across different environments  
+
+2. exporter:  
+   -> exporters are specialised programs that expose metrics from third-party systems in a format Prometheus can scrape. These could be for databases (like MySQL, PostgreSQL), web servers (like Nginx, Apache), or message brokers (like Kafka, Redis)  
+   -> Prometheus provides an extensive list of official and community-exported integrations  
+
+3. Prometheus data model:  
+   -> time-series data: the fundamental unit of data in Prometheus is a time-series, which is a sequence of data points over time. Each series has a unique set of labels, which allows for fine-grained filtering  
+   -> metric types: there are four metric types that Prometheus works with:  
+     -> counter: a metric that only increases over time (e.g., number of requests)  
+     -> gauge: a metric that can go up and down (e.g., CPU usage)  
+     -> histogram: a metric that samples observations and counts them in configurable buckets  
+     -> summary: similar to a histogram but offers a more detailed breakdown of quantiles and other aggregations  
+
+-> alerting in Prometheus with Alertmanager  
+Alerting is one of the most powerful features of Prometheus, allowing you to be notified when certain conditions are met  
+
+1. Alertmanager:  
+   -> Alertmanager is a Prometheus component that handles alert notifications. Prometheus sends alerts to Alertmanager, which can then send these alerts to various external systems (like email, Slack, PagerDuty)  
+   -> Alertmanager supports alert deduplication, grouping related alerts together, and silencing certain alerts to prevent unnecessary notifications during maintenance or known issues  
+
+2. alert rules:  
+   -> Prometheus allows you to define alert rules directly in your configuration files. These rules specify when a certain condition occurs in your monitored metrics (e.g., "if the CPU usage is above 80% for 5 minutes")  
+   -> you can use PromQL queries to define these conditions  
+   -> example of a simple alert rule for high CPU usage:  
+     ```yaml  
+     alert: HighCPUUsage  
+     expr: avg(rate(cpu_usage[5m])) > 0.8  
+     for: 5m  
+     labels:  
+       severity: critical  
+     annotations:  
+       summary: "CPU usage above 80% for more than 5 minutes"  
+     ```
+
+-> Prometheus Query Language (PromQL)  
+PromQL is Prometheus’s query language for selecting and aggregating time-series data  
+
+1. basic queries:  
+   -> queries return raw time-series data  
+     Example:  
+     ```promql  
+     http_requests_total{job="api", status="200"}  
+     ```  
+   -> this returns the total number of HTTP requests with status code 200 for the "api" job  
+
+2. aggregations:  
+   -> PromQL supports a variety of aggregations such as `sum()`, `avg()`, `max()`, `min()`, etc  
+   -> example:  
+     ```promql  
+     sum(rate(http_requests_total[5m])) by (job)  
+     ```  
+   -> this sums up the HTTP request rate over the past 5 minutes, grouped by the "job" label  
+
+3. filtering and labeling:  
+   -> PromQL allows filtering based on labels, such as `job`, `instance`, `status`, etc  
+   -> example:  
+     ```promql  
+     avg(cpu_usage{job="frontend", instance="instance1"})  
+     ```  
+   -> this returns the average CPU usage for a specific instance of the frontend job  
+
+4. complex queries:  
+   -> Prometheus allows writing complex queries that combine various metrics, apply filters, or compute rates  
+   -> example of calculating the rate of HTTP requests per minute:  
+     ```promql  
+     rate(http_requests_total[1m])  
+     ```
+
+-> Prometheus setup and configuration  
+the setup involves configuring Prometheus with specific parameters, including specifying which targets (services or nodes) to scrape metrics from  
+
+1. Prometheus configuration (prometheus.yml):  
+   -> Prometheus is configured using a YAML file (`prometheus.yml`). It defines:  
+     -> scrape targets: the endpoints Prometheus should scrape  
+     -> Alerting rules: conditions under which Prometheus should trigger alerts  
+     -> Alertmanager settings: configuring where to send alerts  
+     
+   -> example configuration:  
+     ```yaml  
+     global:  
+       scrape_interval: 15s  
+     scrape_configs:  
+       -> job_name: 'api-server'  
+         static_configs:  
+           -> targets: ['localhost:8080']  
+     alerting:  
+       alertmanagers:  
+         -> static_configs:  
+           -> targets: ['localhost:9093']  
+     ```
+
+2. service discovery:  
+   -> Prometheus supports service discovery, which helps it dynamically find targets in environments like Kubernetes, Consul, or EC2 instances  
+   -> in Kubernetes, for example, you can automatically discover all pods or services that expose a `/metrics` endpoint by using Kubernetes service discovery  
+
+-> using Grafana for visualisation  
+Grafana is a powerful visualisation tool used to display data from Prometheus  
+
+1. dashboards:  
+   -> Grafana allows users to create dashboards that contain different panels for visualising metrics  
+   -> panels can display metrics as graphs, tables, heatmaps, and more  
+   -> example: a CPU usage panel can show the CPU usage for multiple hosts  
+
+2. querying data:  
+   -> in Grafana, you can use PromQL to query Prometheus and visualise metrics  
+   -> example: a graph showing the number of HTTP requests over time  
+
+3. Alerting in Grafana:  
+   -> Grafana can also configure alerts based on the data from Prometheus  
+   -> these alerts can be sent via the same notification channels (Slack, email, etc)  
+
+-> setting up alerting for your Prometheus server  
+to set up alerting for your environment  
+
+1. to define alert rules: in the Prometheus configuration (`prometheus.yml`), you need to define alerting rules for various metrics  
+   example:  
+   ```yaml  
+   alert_rules:  
+     -> alert: HighMemoryUsage  
+       expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes < 0.1  
+       for: 1m  
+       labels:  
+         severity: high  
+       annotations:  
+         summary: "Memory usage is above 90% for 1 minute" 
+          
+handling Alert Notifications: Configure how you want to receive notifications (e.g., email, Slack, or PagerDuty) and include relevant alert details in each notification
+
+-> best practices for Prometheus monitoring
+to ensure you're getting the most out of Prometheus
+
+metric naming conventions:
+	-> use clear, descriptive names for your metrics
+	-> follow naming patterns such as service_name_metric_type (e.g., api_request_count)
+
+labeling strategy:
+	-> use labels to differentiate between different instances or services
+	-> be careful with cardinality, as using too many labels can cause performance issues
+
+alerting sensitivity:
+	-> define alerting thresholds carefully. Alerts should trigger only when something is truly wrong, not for trivial fluctuations
+	-> consider alerting on trends over time, not just static thresholds
+
+resource efficiency:
+	-> Prometheus's time-series database can grow quickly with large amounts of data. Make sure you're managing retention policies and periodically cleaning up old data to avoid performance degradation
+
+testing alerts:
+ 	-> regularly test your alerting setup to ensure it is working as expected and is providing useful notifications
